@@ -89,8 +89,7 @@ boolean Helper::saveconfig(const JsonDocument &json)
   return true;
 }
 
-void Helper::resetsettings(WiFiManager &wifim)
+void Helper::resetsettings()
 {
   LittleFS.format();
-  wifim.resetSettings();
 }

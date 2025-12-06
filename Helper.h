@@ -8,8 +8,7 @@
 #endif
 #include <ArduinoJson.h>
 #include <LittleFS.h>
-#include <ESP8266WiFi.h>
-#include <WiFiManager.h>
+#include <WiFi.h>
 
 class Helper
 {
@@ -18,7 +17,7 @@ public:
   boolean loadconfig();
   JsonObjectConst getconfig() const;
   boolean saveconfig(const JsonDocument &json);
-  void resetsettings(WiFiManager &wifim);
+  void resetsettings();
 
 private:
   static StaticJsonDocument<4096> _doc;

@@ -1,10 +1,13 @@
 #include <Arduino.h>
-#include <arduino_homekit_server.h>
+#include <stddef.h>
 #include "Helper.h"
 #include "pins.h"
-#include "wifi.h"
+#include "net_wifi.h"
+#include <WiFi.h>
 #include "Buttons.h"
 #include <AccelStepper.h>
+#include <ArduinoOTA.h>
+#include <WiFi.h>
 #include "Globals.h"
 #include "web.h"
 
@@ -19,8 +22,8 @@ const float CAL_SPEED = 300.0f; // steps/s during calibration (continuous)
 const int32_t HOLD_TORQUE_MS = 3000; // change to -1 for infinite hold
 const int MIN_TRAVEL = 4096;         // minimum calibration travel 1 full rotation (steps)
 
-// 28BYJ-48 via ULN2003 using HALF4WIRE; coil order IN1, IN3, IN2, IN4
-AccelStepper stepper(AccelStepper::HALF4WIRE, IN1, IN3, IN2, IN4);
+// 28BYJ-48 via ULN2003 using HALF4WIRE; coil order MOTOR_IN1, MOTOR_IN3, MOTOR_IN2, MOTOR_IN4
+AccelStepper stepper(AccelStepper::HALF4WIRE, MOTOR_IN1, MOTOR_IN3, MOTOR_IN2, MOTOR_IN4);
 
 Helper helper;
 
@@ -45,19 +48,9 @@ ShadesState state = {
     .lastMovementTime = 0,
     .lastMessage = String()};
 
-// HomeKit characteristics (provided by accessory.c)
-extern "C" homekit_characteristic_t currentPosition;
-extern "C" homekit_characteristic_t targetPosition;
-extern "C" homekit_characteristic_t positionState;
-extern "C" homekit_server_config_t config;
-
-// HomeKit getters/setters
-homekit_value_t currentPositionGet() { return currentPosition.value; }
-homekit_value_t targetPositionGet() { return targetPosition.value; }
-homekit_value_t positionStateGet() { return positionState.value; }
-void currentPositionSet(homekit_value_t value) { currentPosition.value = value; }
-void targetPositionSet(homekit_value_t value) { targetPosition.value = value; }
-void positionStateSet(homekit_value_t value) { positionState.value = value; }
+// Matter migration: local target percentage and position state (no HomeKit)
+int targetPercent = 0;
+int positionStateLocal = POS_STOPPED;
 
 static uint32_t nextLedMillis = 0;
 
@@ -67,8 +60,6 @@ bool saveConfig();
 void enableCalibrationMode();
 void properLedDisplay();
 void handleEngineControllerActivity();
-void homekitSetup();
-void homekitLoop();
 void shadesControl();
 
 void setup()
@@ -78,6 +69,8 @@ void setup()
   DPRINTLN("=== TEST BUILD " __DATE__ " " __TIME__ " ===");
 
   pinMode(LED_PIN, OUTPUT);
+  // Configure LED dimming using analogWrite (LEDC-backed on ESP32)
+  analogWrite(LED_PIN, 0);
   // BUTTON_MAIN is simulated by both UP+DOWN pressed
   pinMode(BUTTON_UP_PIN, INPUT_PULLUP);
   pinMode(BUTTON_DOWN_PIN, INPUT_PULLUP);
@@ -96,10 +89,24 @@ void setup()
   stepper.setCurrentPosition(state.currentStep);
 
   wifiConnect();
-  // Print chosen hostname and IP for quick verification
-  Serial.printf("Host: %s, IP: %s\n", WiFi.hostname().c_str(), WiFi.localIP().toString().c_str());
+  // Print chosen hostname and IP for quick verification (ESP32)
+  Serial.printf("Host: %s, IP: %s\n", WiFi.getHostname(), WiFi.localIP().toString().c_str());
 
-  homekitSetup();
+  // OTA setup (ArduinoOTA)
+  ArduinoOTA.setHostname("roller_shades");
+  ArduinoOTA.onStart([]()
+                     { DPRINTLN("OTA Start"); });
+  ArduinoOTA.onEnd([]()
+                   { DPRINTLN("OTA End"); });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
+                        {
+                          // low-noise progress
+                        });
+  ArduinoOTA.onError([](ota_error_t error)
+                     { DPRINTF("OTA Error: %u\n", (unsigned)error); });
+  ArduinoOTA.begin();
+
+  // Protocol setup (Matter to be integrated)
   Buttons::init();
   webBegin();
 }
@@ -113,7 +120,7 @@ void loop()
   // 1. Buttons (highest priority)
   Buttons::loop();
 
-  // 2. Update target/commands (HomeKit/web may have changed the target)
+  // 2. Update target/commands (web/Matter may change the target)
   shadesControl();
 
   // 3. MOTOR - must be called every loop
@@ -171,11 +178,13 @@ void loop()
   // 4. State sync - ensure position reflects current motor position
   state.currentStep = stepper.currentPosition();
 
-  // 5. HomeKit - call loop/notifications after position update
-  homekitLoop();
+  // 5. Protocol loop placeholder (for Matter)
 
   // 6. Non-blocking UI tasks
   properLedDisplay();
+
+  // OTA handler
+  ArduinoOTA.handle();
 
   // 7. Housekeeping - run less frequently to avoid frequent SPIFFS/heavy ops
   if (millis() - lastHousekeeping >= HOUSEKEEP_MS)
@@ -209,17 +218,14 @@ void properLedDisplay()
     }
     return;
   }
-  // Reduce brightness when idle for LED
-  // ESP8266 PWM range is 0..255; LED is active-low on most boards
-  int duty = (stepper.distanceToGo() != 0) ? 0 : 254;
+  // Reduce brightness when idle for LED using analogWrite
+  int duty = (stepper.distanceToGo() != 0) ? 0 : 30; // dim at idle
   analogWrite(LED_PIN, duty);
 }
 
 void reset()
 {
-  WiFiManager wifiManager;
-  helper.resetsettings(wifiManager);
-  homekit_storage_reset();
+  helper.resetsettings();
 }
 
 // Turn motor power off after inactivity (kept for state housekeeping)
@@ -252,16 +258,7 @@ void handleEngineControllerActivity()
       if (state.maxSteps != 0)
       {
         int pos = getCurrentPosition();
-        if (currentPosition.value.int_value != pos)
-        {
-          currentPosition.value.int_value = pos;
-          homekit_characteristic_notify(&currentPosition, currentPosition.value);
-        }
-        if (positionState.value.int_value != POS_STOPPED)
-        {
-          positionState.value.int_value = POS_STOPPED;
-          homekit_characteristic_notify(&positionState, positionState.value);
-        }
+        positionStateLocal = POS_STOPPED;
       }
       // Decide hold strategy
       if (HOLD_TORQUE_MS == 0)
@@ -321,11 +318,11 @@ bool loadConfig()
   JsonObjectConst json = helper.getconfig();
   state.currentStep = json["currentStep"] | 0;
   state.maxSteps = json["maxSteps"] | 0;
-  targetPosition.value.int_value = json["targetPositionValue"] | 0;
+  targetPercent = json["targetPositionValue"] | 0;
   // Load raw calibration points if present
   state.upStep = json["rawUpStep"] | 0;
   state.downStep = json["rawDownStep"] | 0;
-  currentPosition.value.int_value = getCurrentPosition();
+  // sync derived position for UI
   return true;
 }
 
@@ -334,7 +331,7 @@ bool saveConfig()
   StaticJsonDocument<512> doc;
   doc["currentStep"] = state.currentStep;
   doc["maxSteps"] = state.maxSteps;
-  doc["targetPositionValue"] = targetPosition.value.int_value;
+  doc["targetPositionValue"] = targetPercent;
   // store raw calibration points if present
   doc["rawUpStep"] = state.upStep;
   doc["rawDownStep"] = state.downStep;
@@ -369,16 +366,12 @@ void shadesControl()
 
   // Convert target percentage to steps (local variable)
   // Clamp targetPosition to [0,100] to avoid invalid writes
-  int tp = targetPosition.value.int_value;
+  int tp = targetPercent;
   if (tp < 0)
     tp = 0;
   else if (tp > 100)
     tp = 100;
-  if (tp != targetPosition.value.int_value)
-  {
-    targetPosition.value.int_value = tp;
-    homekit_characteristic_notify(&targetPosition, targetPosition.value);
-  }
+  targetPercent = tp;
   long targetStep = ((100 - (float)tp) / 100.0f) * state.maxSteps;
 
   // Command stepper to the target (run() moves it)
@@ -389,7 +382,7 @@ void shadesControl()
     stepper.moveTo(targetStep);
     state.lastMovementTime = millis();
     // User-facing feedback for Normal mode moves
-    state.lastMessage = String("Moving to ") + targetPosition.value.int_value + "%";
+    state.lastMessage = String("Moving to ") + targetPercent + "%";
 
     // Update positionState based on direction
     long dist = stepper.targetPosition() - stepper.currentPosition();
@@ -401,24 +394,14 @@ void shadesControl()
     else
       newState = POS_INCREASING; // moving toward smaller steps -> shades going up (opening)
 
-    if (positionState.value.int_value != newState)
-    {
-      positionState.value.int_value = newState;
-      homekit_characteristic_notify(&positionState, positionState.value);
-    }
+    positionStateLocal = newState;
   }
 
   // If no distance left and we previously reported moving, update position and set STOPPED
-  if (stepper.distanceToGo() == 0 && positionState.value.int_value != POS_STOPPED)
+  if (stepper.distanceToGo() == 0 && positionStateLocal != POS_STOPPED)
   {
     int pos = getCurrentPosition();
-    if (currentPosition.value.int_value != pos)
-    {
-      currentPosition.value.int_value = pos;
-      homekit_characteristic_notify(&currentPosition, currentPosition.value);
-    }
-    positionState.value.int_value = POS_STOPPED;
-    homekit_characteristic_notify(&positionState, positionState.value);
+    positionStateLocal = POS_STOPPED;
     state.lastMessage = F("Stopped");
     // Safety: ensure coils are de-energized when we report STOPPED
     // Disable only if we are not intentionally holding torque
@@ -429,21 +412,4 @@ void shadesControl()
   }
 }
 
-void homekitSetup()
-{
-  currentPosition.setter = currentPositionSet;
-  currentPosition.getter = currentPositionGet;
-
-  targetPosition.setter = targetPositionSet;
-  targetPosition.getter = targetPositionGet;
-
-  positionState.setter = positionStateSet;
-  positionState.getter = positionStateGet;
-
-  arduino_homekit_setup(&config);
-}
-
-void homekitLoop()
-{
-  arduino_homekit_loop();
-}
+// HomeKit removed; Matter integration is planned in a separate module

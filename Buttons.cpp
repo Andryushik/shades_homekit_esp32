@@ -1,17 +1,13 @@
 #include <Arduino.h>
 #include <EasyButton.h>
 #include <AccelStepper.h>
-#include <arduino_homekit_server.h>
 #include "pins.h"
 #include "Buttons.h"
-#include "wifi.h"
+#include "net_wifi.h"
 #include "ButtonActions.h"
 
-// HomeKit characteristics (defined in accessory.c)
-extern "C" homekit_characteristic_t currentPosition;
-extern "C" homekit_characteristic_t targetPosition;
-extern "C" homekit_characteristic_t positionState;
-extern "C" homekit_server_config_t config;
+// Local target percentage state (Matter-ready)
+extern int targetPercent;
 
 // Functions implemented elsewhere in the main TU
 extern void reset();
@@ -197,19 +193,17 @@ namespace Buttons
         {
           if (pendingPresetDir < 0)
           {
-            if (targetPosition.value.int_value != 100)
+            if (targetPercent != 100)
             {
-              targetPosition.value.int_value = 100;
-              homekit_characteristic_notify(&targetPosition, targetPosition.value);
+              targetPercent = 100;
               state.lastMessage = F("Moving UP");
             }
           }
           else if (pendingPresetDir > 0)
           {
-            if (targetPosition.value.int_value != 0)
+            if (targetPercent != 0)
             {
-              targetPosition.value.int_value = 0;
-              homekit_characteristic_notify(&targetPosition, targetPosition.value);
+              targetPercent = 0;
               state.lastMessage = F("Moving DOWN");
             }
           }

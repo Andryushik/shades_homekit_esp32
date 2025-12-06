@@ -1,6 +1,6 @@
-# HomeKit Roller Shades (ESP8266, 28BYJ‑48)
+# Shades Controller (Seeed XIAO ESP32C6, Matter-ready)
 
-Firmware for an ESP8266 (NodeMCU V3) controlling a 28BYJ‑48 stepper via ULN2003 and exposing a HomeKit Window Covering accessory (open % + position state). Includes physical buttons, HTTP web UI for calibration & maintenance, and SPIFFS persistence.
+Roller shades controller for Seeed Studio XIAO ESP32C6. Drives a 28BYJ‑48 stepper via ULN2003, provides calibration, web UI, OTA updates, and is prepared for Matter integration (HomeKit code removed).
 
 ## Features
 
@@ -15,29 +15,32 @@ Firmware for an ESP8266 (NodeMCU V3) controlling a 28BYJ‑48 stepper via ULN200
 
 ## Hardware
 
-- MCU: ESP8266 NodeMCU V3 (CH340 USB‑serial).
+- MCU: Seeed Studio XIAO ESP32C6
 - Stepper: 28BYJ‑48 — 12 V variant preferred for reliability and torque; ensure the ULN2003 board and power supply match the motor voltage.
 - Driver: ULN2003 board.
-- Buttons: 2 × tactile (UP on GPIO4 / D2, DOWN on GPIO0 / D3) using `INPUT_PULLUP` (pressed = LOW).
-- LED: onboard GPIO2 / D4 (active‑low).
-- Power: a stable 12 V supply is preferred when using the 12 V 28BYJ‑48 variant (better torque and reliability). Ensure the ULN2003 driver and wiring are rated for 12 V, and provide a proper 5 V regulator or separate 5 V supply for the NodeMCU logic if needed. Avoid brownouts — provide sufficient current headroom.
+- Buttons: 2 × tactile (wired to ground, `INPUT_PULLUP`, pressed = LOW).
+- LED: onboard single LED (`LED_BUILTIN`).
+- Power: stable supply matching motor voltage; ensure adequate current for both logic and motor.
 
-Pin wiring (AccelStepper HALF4WIRE, coil order IN1, IN3, IN2, IN4 as used in code):
+Pin wiring (AccelStepper HALF4WIRE, coil order MOTOR_IN1, MOTOR_IN3, MOTOR_IN2, MOTOR_IN4 as used in code):
 
-- IN1 → D7 (GPIO13)
-- IN2 → D6 (GPIO12)
-- IN3 → D5 (GPIO14)
-- IN4 → D1 (GPIO5)
+- MOTOR_IN1 → D1 (GPIO1)
+- MOTOR_IN2 → D2 (GPIO2)
+- MOTOR_IN3 → D3 (GPIO3)
+- MOTOR_IN4 → D4 (GPIO4)
+- BUTTON_UP_PIN → D8 (GPIO8)
+- BUTTON_DOWN_PIN → D9 (GPIO9)
+- LED_PIN → `LED_BUILTIN` (fallback GPIO15)
 
 To reverse motor direction just flip the wiring order of the four ULN2003 inputs. For example: IN1→D1, IN2→D5, IN3→D6, IN4→D7 (no code changes are required when you flip the wiring).
 
-Caution: Do not hold DOWN (GPIO0) during power‑up—forces flash mode.
+Note: Adjust pins in `pins.h` if your wiring differs.
 
-## First Setup & HomeKit
+## First Setup
 
-1. Power device; connect to AP "Roller Shades Configuration" and configure Wi-Fi.
-2. Pair in Apple Home (PIN `281-42-814`, see `accessory.c`).
-3. After calibration, use percentage control & automations normally.
+1. Power device; connect to AP "Roller Shades Configuration" and configure Wi‑Fi (captive portal via WiFiManager).
+2. Calibrate via web UI or buttons.
+3. Use web UI for control; Matter pairing to be added.
 
 ## Calibration
 
@@ -107,10 +110,23 @@ Smart roller shades printable parts and enclosure:
 
 ## Software & Build
 
-- Board: `esp8266:esp8266:nodemcuv2`
-- Libraries: WiFiManager, ArduinoJson v7, AccelStepper, EasyButton, HomeKit‑ESP8266, SPIFFS/FS.
+- Board: `esp32:esp32:XIAO_ESP32C6`
+- Libraries: WiFiManager (ESP32), ArduinoJson v7, AccelStepper, EasyButton, FS/LittleFS.
 - Serial: 115200 baud.
-- Ensure SPIFFS formatted/available on first flash.
+
+Build & upload via Arduino CLI:
+
+```zsh
+arduino-cli compile --fqbn esp32:esp32:XIAO_ESP32C6 .
+arduino-cli upload -p /dev/tty.usbmodemXXXX --fqbn esp32:esp32:XIAO_ESP32C6 .
+```
+
+OTA update (device hostname `roller_shades`):
+
+```zsh
+python3 $HOME/Library/Arduino15/packages/esp32/tools/espota/*/espota.py \
+  -i roller_shades.local -p 3232 -f /path/to/firmware.bin
+```
 
 ### Constants & Configuration
 
@@ -128,8 +144,14 @@ Timing constants (configurable in `Globals.h`):
 - Build with debug:
 
 ```zsh
-arduino-cli compile --fqbn esp8266:esp8266:nodemcuv2 \
+arduino-cli compile --fqbn esp32:esp32:XIAO_ESP32C6 \
   --build-property build.extra_flags="-DSHADES_DEBUG" .
+
+## Matter Integration (ESP32C6)
+- Seeed guide: https://wiki.seeedstudio.com/xiao_esp32_matter_env/
+- Espressif Matter setup: use ESP-IDF with Matter examples; Arduino integration typically wraps Matter via components.
+- Plan: add a Matter Window Covering cluster to control target percentage; wire it to `targetPercent` and report position via `getCurrentPosition()`.
+- Until Matter is integrated, use the web UI for control.
 ```
 
 ## Inspiration

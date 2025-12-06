@@ -1,16 +1,14 @@
 #include "web.h"
 #include <Arduino.h>
-#include <ESP8266WebServer.h>
+#include <WebServer.h>
 #include <ArduinoJson.h>
 #include "Globals.h"
 #include "Buttons.h"
 #include "ButtonActions.h"
 #include <AccelStepper.h>
-#include <arduino_homekit_server.h>
+// HomeKit removed; preparing for Matter integration
 
-extern "C" homekit_characteristic_t currentPosition;
-extern "C" homekit_characteristic_t targetPosition;
-extern "C" homekit_characteristic_t positionState;
+extern int targetPercent;
 
 // Accessors provided by main translation unit
 extern int getCurrentPosition();
@@ -23,7 +21,7 @@ extern void enableCalibrationMode();
 extern bool saveConfig();
 extern void reset();
 
-static ESP8266WebServer server(80);
+static WebServer server(80);
 
 // Use PROGMEM for large HTML content to save RAM (global scope)
 const char HTML_PAGE[] PROGMEM = R"html(
@@ -132,7 +130,7 @@ var st=document.getElementById('calStart'),sp=document.getElementById('calStop')
 if(st&&sp){st.style.display=s.mode==='CALIBRATE'?'none':'inline-block'; sp.style.display=s.mode==='CALIBRATE'?'inline-block':'none';}
 });}; setInterval(u,200); window.addEventListener('load',u);
 document.addEventListener('click',(e)=>{var b=e.target.closest('[data-act]'); if(b){var act=b.getAttribute('data-act');
-if(act==='/factory'){if(!confirm('Factory reset will erase Wi-Fi, SPIFFS config, and HomeKit pairing. Continue?'))return;}
+if(act==='/factory'){if(!confirm('Factory reset will erase Wi-Fi and SPIFFS config. Continue?'))return;}
 fetch(act,{method:'POST'}).then(u).catch(()=>{alert('Error!');}); e.preventDefault();}});})();</script>
 </body></html>
 )html";
@@ -289,9 +287,7 @@ static void handleReboot()
 {
   DPRINTLN("WEB: Safe Reboot requested");
   int currentPercent = getCurrentPosition();
-  targetPosition.value.int_value = currentPercent;
-  currentPosition.value.int_value = currentPercent;
-  positionState.value.int_value = POS_STOPPED;
+  targetPercent = currentPercent;
   stepper.stop();
   state.currentStep = stepper.currentPosition();
   if (!saveConfig())

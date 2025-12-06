@@ -1,7 +1,6 @@
 #include "ButtonActions.h"
 #include <Arduino.h>
 #include <AccelStepper.h>
-#include <arduino_homekit_server.h>
 #include "Globals.h"
 #include "pins.h"
 
@@ -27,9 +26,8 @@ int calculatePercentForStep(long stepPosition)
 }
 
 // External symbols from main TU and other modules
-extern "C" homekit_characteristic_t currentPosition;
-extern "C" homekit_characteristic_t targetPosition;
-extern "C" homekit_characteristic_t positionState;
+extern int targetPercent;
+extern int positionStateLocal;
 
 extern AccelStepper stepper;
 extern ShadesState state;
@@ -90,17 +88,13 @@ void BA_moveToPercent(int percent)
     tp = 0;
   else if (tp > 100)
     tp = 100;
-  if (tp != targetPosition.value.int_value)
-  {
-    targetPosition.value.int_value = tp;
-    homekit_characteristic_notify(&targetPosition, targetPosition.value);
-    if (tp == 100)
-      state.lastMessage = F("Moving UP");
-    else if (tp == 0)
-      state.lastMessage = F("Moving DOWN");
-    else
-      state.lastMessage = String("Moving to ") + tp + "%";
-  }
+  targetPercent = tp;
+  if (tp == 100)
+    state.lastMessage = F("Moving UP");
+  else if (tp == 0)
+    state.lastMessage = F("Moving DOWN");
+  else
+    state.lastMessage = String("Moving to ") + tp + "%";
 }
 
 void BA_stopMotion()
@@ -119,13 +113,9 @@ void BA_stopMotion()
     long stopPos = currentPos + (long)(currentSpeed > 0 ? decelDistance : -decelDistance);
     stepper.moveTo(stopPos);
 
-    // IMMEDIATELY update HomeKit targetPosition to STOP position to prevent shadesControl() from overwriting!
+    // Immediately update local target to STOP position to prevent overwrite
     int stopPercent = calculatePercentForStep(stopPos);
-    if (targetPosition.value.int_value != stopPercent)
-    {
-      targetPosition.value.int_value = stopPercent;
-      homekit_characteristic_notify(&targetPosition, targetPosition.value);
-    }
+    targetPercent = stopPercent;
 
     state.lastMessage = F("Stopping...");
   }
@@ -135,16 +125,10 @@ void BA_stopMotion()
     stepper.setCurrentPosition(currentPos);
     stepper.moveTo(currentPos);
 
-    // Update targetPosition immediately for HomeKit
+    // Update local target immediately
     int currentPercent = getCurrentPosition();
-    if (targetPosition.value.int_value != currentPercent)
-    {
-      targetPosition.value.int_value = currentPercent;
-      homekit_characteristic_notify(&targetPosition, targetPosition.value);
-    }
-
-    positionState.value.int_value = POS_STOPPED;
-    homekit_characteristic_notify(&positionState, positionState.value);
+    targetPercent = currentPercent;
+    positionStateLocal = POS_STOPPED;
     state.lastMessage = F("Stopped");
   }
 }
@@ -216,10 +200,7 @@ bool BA_calibrationSaveBottom()
   int rebasedCurrent = state.currentStep - state.upStep;
   stepper.setCurrentPosition(rebasedCurrent);
   state.currentStep = rebasedCurrent;
-  targetPosition.value.int_value = 0;
-  homekit_characteristic_notify(&targetPosition, targetPosition.value);
-  currentPosition.value.int_value = 0;
-  homekit_characteristic_notify(&currentPosition, currentPosition.value);
+  targetPercent = 0;
   state.confirmBlinkActive = true;
   state.exitCalibrationAfterBlink = true;
   stepper.setMaxSpeed(SPEED_MAX);
