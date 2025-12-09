@@ -7,9 +7,7 @@
 #include "Buttons.h"
 #include "ButtonActions.h"
 #include <AccelStepper.h>
-#if ENABLE_MATTER
-#include "matter_bridge.h"
-#endif
+#include "homespan_bridge.h"
 
 extern int targetPercent;
 
@@ -108,19 +106,14 @@ Step: <code id='cur'>CUR_PLACEHOLDER</code> / <code id='max'>MAX_PLACEHOLDER</co
 </div>
 </div>
 
-<div class="card" id="matter-card" style="MATTER_DISPLAY">
-<h3>🔗 Matter Pairing</h3>
-<div id="qr-container" style="text-align:center;margin:16px 0;MATTER_QR_DISPLAY">
-<div style="background:#f8f9fa;padding:12px;border-radius:8px;margin:8px 0;display:inline-block;overflow:hidden">
-<div style="font-size:12px;color:#666;margin-bottom:8px">Scan with Home app:</div>
-<img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=MATTER_QR_PAYLOAD" style="width:220px;height:220px;max-width:100%;border-radius:8px;display:block" alt="QR Code">
+<div class="card" id="homekit-card" style="HOMEKIT_DISPLAY">
+<h3>🍎 HomeKit Pairing</h3>
+<div style="text-align:center;margin:16px 0">
+<div style="background:#f8f9fa;padding:16px;border-radius:8px;margin:8px 0">
+<div style="font-size:14px;color:#666;margin-bottom:12px">Setup Code:</div>
+<code style="font-size:32px;font-weight:bold;color:#2c3e50;letter-spacing:4px">466-37-726</code>
+<div style="font-size:12px;color:#999;margin-top:12px">Open Home app → Add Accessory → Enter Code</div>
 </div>
-<div style="font-size:11px;color:#999;margin-top:8px">Or use manual code below</div>
-</div>
-<div id="no-qr" style="MATTER_NO_QR_DISPLAY;color:#27ae60;font-size:14px;text-align:center;padding:16px">✅ Device already paired</div>
-<div style="font-size:13px;color:#666;text-align:center;margin-top:8px;MATTER_CODE_DISPLAY">
-<strong>Manual pairing code:</strong><br>
-<code id="pairing-code" style="font-size:18px;color:#2c3e50;background:#f8f9fa;padding:8px 16px;border-radius:6px;display:inline-block;margin-top:4px">MATTER_CODE</code>
 </div>
 </div>
 
@@ -169,37 +162,15 @@ static void handleRoot()
   htmlStr.replace("CUR_PLACEHOLDER", String(state.currentStep));
   htmlStr.replace("MAX_PLACEHOLDER", String(state.maxSteps));
 
-#if ENABLE_MATTER
-  String qrUrl = MatterBridge::getQRCodeUrl();
-  String qrPayload = MatterBridge::getQRCodePayload();
-  String pairingCode = MatterBridge::getPairingCode();
-  if (!qrUrl.isEmpty() || !qrPayload.isEmpty())
+  // HomeKit always enabled
+  if (HomeSpanBridge::isEnabled())
   {
-    htmlStr.replace("MATTER_DISPLAY", "display:block");
-    htmlStr.replace("MATTER_QR_URL", qrUrl);
-    htmlStr.replace("MATTER_QR_PAYLOAD", qrPayload.isEmpty() ? qrUrl : qrPayload);
-    htmlStr.replace("MATTER_QR_DISPLAY", "display:block");
-    htmlStr.replace("MATTER_NO_QR_DISPLAY", "display:none");
-    htmlStr.replace("MATTER_CODE_DISPLAY", "display:block");
-    htmlStr.replace("MATTER_CODE", pairingCode);
+    htmlStr.replace("HOMEKIT_DISPLAY", "display:block");
   }
   else
   {
-    htmlStr.replace("MATTER_DISPLAY", "display:block");
-    htmlStr.replace("MATTER_QR_PAYLOAD", "-");
-    htmlStr.replace("MATTER_QR_DISPLAY", "display:none");
-    htmlStr.replace("MATTER_NO_QR_DISPLAY", "display:block");
-    htmlStr.replace("MATTER_CODE_DISPLAY", "display:none");
-    htmlStr.replace("MATTER_CODE", "-");
+    htmlStr.replace("HOMEKIT_DISPLAY", "display:none");
   }
-#else
-  htmlStr.replace("MATTER_DISPLAY", "display:none");
-  htmlStr.replace("MATTER_QR_PAYLOAD", "-");
-  htmlStr.replace("MATTER_QR_DISPLAY", "display:none");
-  htmlStr.replace("MATTER_NO_QR_DISPLAY", "display:none");
-  htmlStr.replace("MATTER_CODE_DISPLAY", "display:none");
-  htmlStr.replace("MATTER_CODE", "-");
-#endif
 
   page = htmlStr;
   server.send(200, "text/html; charset=UTF-8", page);
@@ -380,14 +351,6 @@ static void handleStatus()
   doc["msg"] = state.lastMessage;
   doc["moving"] = (stepper.distanceToGo() != 0);
   doc["ip"] = WiFi.localIP().toString();
-#if ENABLE_MATTER
-  if (MatterBridge::isEnabled())
-  {
-    doc["qrPayload"] = MatterBridge::getQRCodePayload();
-    doc["pairingCode"] = MatterBridge::getPairingCode();
-    doc["qrAvailable"] = !MatterBridge::getQRCodeUrl().isEmpty();
-  }
-#endif
   String out;
   serializeJson(doc, out);
   server.sendHeader("Cache-Control", "no-cache");

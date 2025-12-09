@@ -4,8 +4,6 @@
 #include <Arduino.h>
 
 // Build-time feature toggles
-#define ENABLE_MATTER 1
-
 /*
  Debug logging helpers: define `SHADES_DEBUG` to enable serial debug output
  (add `-DSHADES_DEBUG` to compiler flags to enable; this avoids colliding with

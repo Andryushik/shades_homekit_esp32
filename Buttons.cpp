@@ -6,7 +6,7 @@
 #include "net_wifi.h"
 #include "ButtonActions.h"
 
-// Local target percentage state (Matter-ready)
+// Local target percentage state
 extern int targetPercent;
 
 // Functions implemented elsewhere in the main TU

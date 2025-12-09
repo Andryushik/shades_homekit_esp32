@@ -9,16 +9,7 @@
 #include "Globals.h"
 #include "web.h"
 #include "LedControl.h"
-#if ENABLE_MATTER
-#include "matter_bridge.h"
-#else
-namespace MatterBridge
-{
-  inline void begin(int) {}
-  inline void loop(int, bool) {}
-  inline void factoryReset() {}
-}
-#endif
+#include "homespan_bridge.h"
 
 #if ESP_COREDUMP_ENABLE
 #include "esp_core_dump.h"
@@ -61,7 +52,7 @@ ShadesState state = {
     .lastMovementTime = 0,
     .lastMessage = String()};
 
-// Matter migration: local target percentage and position state (no HomeKit)
+// Target position (0-100%) and movement state for shade control
 int targetPercent = 0;
 int positionStateLocal = POS_STOPPED;
 
@@ -107,10 +98,8 @@ void setup()
 
   wifiConnect();
 
-  // Matter endpoint
-#if ENABLE_MATTER
-  MatterBridge::begin(getCurrentPosition());
-#endif
+  // HomeSpan (HomeKit) setup
+  HomeSpanBridge::begin(getCurrentPosition());
 
   Buttons::init();
   webBegin();
@@ -126,7 +115,7 @@ void loop()
   // 1. Buttons (highest priority)
   Buttons::loop();
 
-  // 2. Update target/commands (web/Matter may change the target)
+  // 2. Update target/commands
   shadesControl();
 
   // 3. MOTOR - must be called every loop
@@ -184,9 +173,17 @@ void loop()
   // 4. State sync - ensure position reflects current motor position
   state.currentStep = stepper.currentPosition();
 
-  // 5. Matter reporting (maps position to dimmable-light endpoint)
-  bool movingNow = (stepper.distanceToGo() != 0) || (state.currentMode == CALIBRATE);
-  MatterBridge::loop(getCurrentPosition(), movingNow);
+  // 5. HomeSpan (HomeKit) updates
+  HomeSpanBridge::loop();
+
+  // Update position in HomeKit when it changes
+  static int lastReportedPercent = -1;
+  int currentPercent = getCurrentPosition();
+  if (currentPercent != lastReportedPercent)
+  {
+    HomeSpanBridge::updatePosition(currentPercent);
+    lastReportedPercent = currentPercent;
+  }
 
   // 6. Non-blocking UI tasks
   properLedDisplay();
@@ -286,7 +283,7 @@ void properLedDisplay()
 
 void reset()
 {
-  MatterBridge::factoryReset();
+  HomeSpanBridge::factoryReset();
   helper.resetsettings();
   wifiReset();
   delay(1000);
@@ -477,5 +474,3 @@ void shadesControl()
     }
   }
 }
-
-// HomeKit removed; Matter integration is planned in a separate module
