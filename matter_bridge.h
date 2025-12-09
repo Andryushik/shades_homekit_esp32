@@ -24,6 +24,7 @@ namespace MatterBridge
   // Get Matter pairing info (empty if commissioned)
   String getQRCodeUrl();
   String getPairingCode();
+  String getQRCodePayload();
 }
 
 #endif

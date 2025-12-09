@@ -42,7 +42,10 @@ namespace MatterBridge
   static bool started = false;
   static int lastReportedPercent = -1;
   static uint32_t lastReportMs = 0;
-  static bool ignoreNextCallback = false; // Flag to prevent feedback loop
+  static bool ignoreNextCallback = false; // Block feedback from our own updates
+  static bool lastOnState = false;        // Track last on/off state to detect real changes
+  static uint32_t lastOffTime = 0;        // Track when we last went OFF to detect Matter state restoration
+  static uint32_t lastOnTime = 0;         // Track when we last went ON to ignore immediate brightness changes
 
   static void publishPercent(int percent, bool force)
   {
@@ -55,30 +58,73 @@ namespace MatterBridge
     uint8_t level = percentToLevel(p);
     bool on = (p > 0);
 
-    // Prevent onChange callback from triggering during our own updates
-    ignoreNextCallback = true;
+    // Update on/off first (reduces Matter errors during transitions)
+    bool onChanged = (on != lastOnState);
+    if (onChanged || force)
+    {
+      ignoreNextCallback = true; // Block callback for this update
+      shadeEndpoint.setOnOff(on);
+    }
 
-    // Update attributes (maps percent to brightness)
+    // Update brightness
+    ignoreNextCallback = true; // Block callback for this update
     shadeEndpoint.setBrightness(level);
-    shadeEndpoint.setOnOff(on);
 
     lastReportedPercent = p;
+    lastOnState = on; // Track what we published
   }
 
   static bool onMatterChange(bool on, uint8_t brightness)
   {
-    // Ignore callbacks triggered by our own publishPercent() calls
+    // Ignore feedback from our own publishPercent updates
     if (ignoreNextCallback)
     {
       ignoreNextCallback = false;
-      return true;
+      return true; // Silent ignore - these are our own updates
     }
 
-    // Map Matter dimmer change back to targetPercent; off maps to 0%
-    int percent = on ? levelToPercent(brightness) : 0;
-    int newTarget = clampPercent(percent);
+    bool onChanged = (on != lastOnState);
+    uint32_t now = millis();
 
-    Serial.printf("Matter: command received %d%% (current target was %d%%)\n", newTarget, targetPercent);
+    // Process all real Matter commands (feedback already filtered above)
+    int percent;
+
+    if (!on)
+    {
+      // OFF command → close fully
+      percent = 0;
+      lastOffTime = now;
+      Serial.printf("Matter: OFF → 0%%\n");
+    }
+    else if (onChanged)
+    {
+      // ON after OFF → open fully (ignore brightness during transition)
+      percent = 100;
+      lastOnTime = now;
+      Serial.printf("Matter: ON (was OFF) → 100%%\n");
+    }
+    else if (brightness == 1)
+    {
+      // Brightness=1 artifact while already ON → ignore
+      return true;
+    }
+    else if (brightness < 20 && (now - lastOnTime) < 200)
+    {
+      // Ignore low brightness spike right after ON (< 20 within 200ms)
+      Serial.printf("Matter: ignoring low brightness spike after ON (brightness=%d)\n", brightness);
+      return true;
+    }
+    else
+    {
+      // Brightness change while ON → map to percent
+      percent = levelToPercent(brightness);
+      Serial.printf("Matter: brightness=%d → %d%%\n", brightness, percent);
+    }
+
+    int newTarget = clampPercent(percent);
+    lastOnState = on; // Update tracked state
+
+    Serial.printf("Matter: → %d%% (was %d%%)\n", newTarget, targetPercent);
     targetPercent = newTarget;
     return true;
   }
@@ -147,6 +193,45 @@ namespace MatterBridge
     if (!started || Matter.isDeviceCommissioned())
       return "";
     return Matter.getOnboardingQRCodeUrl();
+  }
+
+  // Extract raw QR payload (string after data= in the URL), URL-decoded
+  String getQRCodePayload()
+  {
+    String url = getQRCodeUrl();
+    int idx = url.indexOf("data=");
+    if (idx < 0)
+      return "";
+    String encoded = url.substring(idx + 5);
+
+    // URL-decode minimal set (%XX)
+    String decoded;
+    for (int i = 0; i < encoded.length(); ++i)
+    {
+      if (encoded[i] == '%' && i + 2 < encoded.length())
+      {
+        char h1 = encoded[i + 1];
+        char h2 = encoded[i + 2];
+        auto hexVal = [](char c) -> int
+        {
+          if (c >= '0' && c <= '9')
+            return c - '0';
+          if (c >= 'A' && c <= 'F')
+            return 10 + (c - 'A');
+          if (c >= 'a' && c <= 'f')
+            return 10 + (c - 'a');
+          return 0;
+        };
+        int val = (hexVal(h1) << 4) | hexVal(h2);
+        decoded += (char)val;
+        i += 2;
+      }
+      else
+      {
+        decoded += encoded[i];
+      }
+    }
+    return decoded;
   }
 
   String getPairingCode()
