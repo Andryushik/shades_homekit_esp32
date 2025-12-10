@@ -18,7 +18,7 @@ extern void enableCalibrationMode();
 extern bool saveConfig();
 extern void reset();
 
-static WebServer server(80);
+static WebServer server(80); // Web UI on standard port 80 (HomeSpan moved to 8080)
 
 // Use PROGMEM for large HTML content to save RAM (global scope)
 const char HTML_PAGE[] PROGMEM = R"html(
@@ -107,7 +107,7 @@ Step: <code id='cur'>CUR_PLACEHOLDER</code> / <code id='max'>MAX_PLACEHOLDER</co
 <div style="text-align:center;margin:16px 0">
 <div style="background:#f8f9fa;padding:16px;border-radius:8px;margin:8px 0">
 <div style="font-size:14px;color:#666;margin-bottom:12px">Setup Code:</div>
-<code style="font-size:32px;font-weight:bold;color:#2c3e50;letter-spacing:4px">466-37-726</code>
+<code style="font-size:32px;font-weight:bold;color:#2c3e50;letter-spacing:4px">281-42-814</code>
 <div style="font-size:12px;color:#999;margin-top:12px">Open Home app → Add Accessory → Enter Code</div>
 </div>
 </div>
@@ -363,7 +363,6 @@ void webBegin()
   server.on("/preset/70", HTTP_POST, handlePreset70);
   server.on("/reboot", HTTP_POST, handleReboot);
   server.begin();
-  DPRINTF("Web server: http://%s\n", WiFi.localIP().toString().c_str());
 }
 
 void webLoop()

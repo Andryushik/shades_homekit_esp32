@@ -8,6 +8,7 @@
 #include "Globals.h"
 #include "web.h"
 #include "LedControl.h"
+#include "HomeKitShade.h"
 
 // Speed/settings constants
 const float SPEED_MAX = 900.0f; // steps/s
@@ -81,27 +82,72 @@ void setup()
   // stepper.setMinPulseWidth(2);
   stepper.setCurrentPosition(state.currentStep);
 
-  // Let HomeSpan manage Wi-Fi with auto-start captive portal if no creds
-  homeSpan.enableAutoStartAP();
-
-  // Initialize HomeSpan
+  // Initialize HomeSpan FIRST
+  Serial.println("DEBUG: About to call homeSpan.begin()...");
   homeSpan.begin(Category::WindowCoverings, "Roller Shades");
-  homeSpan.setPairingCode("281-42-814");
+  Serial.println("DEBUG: homeSpan.begin() completed!");
 
-  DPRINTLN("HomeSpan ready. Use 'W' command via Serial to configure Wi-Fi if needed.");
+  // Set HomeSpan to use port 8080 (to free up port 80 for web UI)
+  homeSpan.setPortNum(8080);
+  Serial.println("DEBUG: HomeSpan HAP server will use port 8080");
 
+  // Enable Auto-AP mode without password for easy WiFi configuration
+  homeSpan.setApSSID("RollerShades-Setup"); // Custom AP name
+  homeSpan.setApPassword("");               // Empty password = open network
+  homeSpan.enableAutoStartAP();
+  Serial.println("DEBUG: Auto-AP mode enabled (open network)!");
+
+  homeSpan.setPairingCode("28142814");
+  Serial.println("DEBUG: Pairing code set!");
+
+  // Give HomeSpan internal tasks time to initialize
+  delay(100);
+  Serial.println("DEBUG: Creating SpanAccessory...");
+
+  // THEN create HomeKit accessory structure
+  new SpanAccessory();
+  Serial.println("DEBUG: SpanAccessory created!");
+
+  new Service::AccessoryInformation();
+  Serial.println("DEBUG: AccessoryInformation created!");
+
+  new Characteristic::Identify();
+  new Characteristic::Name("Roller Shades");
+  new Characteristic::Manufacturer("DIY");
+  new Characteristic::Model("ESP32C6-Shades");
+  new Characteristic::SerialNumber("RS-001");
+  Serial.println("DEBUG: Characteristics created!");
+
+  new RollerShade(); // Custom WindowCovering service with update/loop
+  Serial.println("DEBUG: RollerShade service created!");
+
+  Serial.println("DEBUG: Initializing buttons...");
   Buttons::init();
-  webBegin();
+  Serial.println("DEBUG: Buttons initialized!");
+
+  Serial.println("DEBUG: Setup complete, entering loop...");
+  Serial.println("DEBUG: Web server will start after WiFi connection...");
 }
 
 void loop()
 {
   static bool wasCalibrating = false;
   static unsigned long lastHousekeeping = 0;
+  static bool webServerStarted = false;   // Track web server initialization
   const unsigned long HOUSEKEEP_MS = 100; // run housekeeping less frequently
 
   // 1. HomeSpan loop (must be called for HomeKit communication)
   homeSpan.poll();
+
+  // Start web server after WiFi is connected (deferred initialization)
+  if (!webServerStarted && WiFi.status() == WL_CONNECTED)
+  {
+    Serial.println("WiFi connected! Starting web server...");
+    webBegin();
+    webServerStarted = true;
+    Serial.print("Web server started at http://");
+    Serial.println(WiFi.localIP());
+  }
 
   // 2. Buttons (highest priority)
   Buttons::loop();
