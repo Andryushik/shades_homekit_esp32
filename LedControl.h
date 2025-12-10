@@ -11,6 +11,7 @@ namespace Led
   void setBrightness(uint8_t brightness);
   void toggle();
   bool isOn();
+  void blinkUpdate(uint32_t intervalMs); // Call in loop to handle automatic blinking
 }
 
 #endif

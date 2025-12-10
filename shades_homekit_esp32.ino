@@ -48,8 +48,6 @@ ShadesState state = {
     .lastMovementTime = 0,
     .lastMessage = String()};
 
-// HomeSpan Service will be defined in setup
-
 int getCurrentPosition();
 bool loadConfig();
 bool saveConfig();
@@ -71,6 +69,12 @@ void setup()
 
   state.startupTime = millis();
 
+  // Initialize SPIFFS for config storage
+  if (!helper.begin())
+  {
+    DPRINTLN("ERROR: Failed to initialize SPIFFS!");
+  }
+
   loadConfig();
   if (state.maxSteps == 0)
     enableCalibrationMode();
@@ -87,9 +91,8 @@ void setup()
   homeSpan.begin(Category::WindowCoverings, "Roller Shades");
   Serial.println("DEBUG: homeSpan.begin() completed!");
 
-  // Set HomeSpan to use port 8080 (to free up port 80 for web UI)
-  homeSpan.setPortNum(8080);
-  Serial.println("DEBUG: HomeSpan HAP server will use port 8080");
+  // HomeSpan uses default port 80 for HAP
+  Serial.println("DEBUG: HomeSpan HAP server will use port 80 (default)");
 
   // Enable Auto-AP mode without password for easy WiFi configuration
   homeSpan.setApSSID("RollerShades-Setup"); // Custom AP name
@@ -146,7 +149,8 @@ void loop()
     webBegin();
     webServerStarted = true;
     Serial.print("Web server started at http://");
-    Serial.println(WiFi.localIP());
+    Serial.print(WiFi.localIP());
+    Serial.println(":8080");
   }
 
   // 2. Buttons (highest priority)
@@ -240,7 +244,7 @@ void properLedDisplay()
   if (shouldBlink)
   {
     // Slow blink during calibration/setup
-    Led::toggle();
+    Led::blinkUpdate(LED_BLINK_INTERVAL_MS);
     return;
   }
 

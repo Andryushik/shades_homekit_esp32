@@ -18,7 +18,7 @@ extern void enableCalibrationMode();
 extern bool saveConfig();
 extern void reset();
 
-static WebServer server(80); // Web UI on standard port 80 (HomeSpan moved to 8080)
+static WebServer server(8080); // Web UI on port 8080 (HomeSpan on default 80)
 
 // Use PROGMEM for large HTML content to save RAM (global scope)
 const char HTML_PAGE[] PROGMEM = R"html(

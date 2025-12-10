@@ -8,6 +8,7 @@
 namespace Led
 {
   static uint8_t currentBrightness = 0;
+  static uint32_t nextBlinkMillis = 0;
 
   void begin()
   {
@@ -51,5 +52,15 @@ namespace Led
   bool isOn()
   {
     return currentBrightness > 0;
+  }
+
+  void blinkUpdate(uint32_t intervalMs)
+  {
+    const uint32_t now = millis();
+    if (now >= nextBlinkMillis)
+    {
+      nextBlinkMillis = now + intervalMs;
+      toggle();
+    }
   }
 }
