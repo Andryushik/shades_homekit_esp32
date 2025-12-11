@@ -9,6 +9,7 @@
 #include "web.h"
 #include "LedControl.h"
 #include "HomeKitShade.h"
+#include "HomeSpanConfig.h"
 
 // Speed/settings constants
 const float SPEED_MAX = 900.0f; // steps/s
@@ -86,43 +87,8 @@ void setup()
   // stepper.setMinPulseWidth(2);
   stepper.setCurrentPosition(state.currentStep);
 
-  // Initialize HomeSpan FIRST
-  Serial.println("DEBUG: About to call homeSpan.begin()...");
-  homeSpan.begin(Category::WindowCoverings, "Roller Shades");
-  Serial.println("DEBUG: homeSpan.begin() completed!");
-
-  // HomeSpan uses default port 80 for HAP
-  Serial.println("DEBUG: HomeSpan HAP server will use port 80 (default)");
-
-  // Enable Auto-AP mode without password for easy WiFi configuration
-  homeSpan.setApSSID("RollerShades-Setup"); // Custom AP name
-  homeSpan.setApPassword("");               // Empty password = open network
-  homeSpan.enableAutoStartAP();
-  Serial.println("DEBUG: Auto-AP mode enabled (open network)!");
-
-  homeSpan.setPairingCode("28142814");
-  Serial.println("DEBUG: Pairing code set!");
-
-  // Give HomeSpan internal tasks time to initialize
-  delay(100);
-  Serial.println("DEBUG: Creating SpanAccessory...");
-
-  // THEN create HomeKit accessory structure
-  new SpanAccessory();
-  Serial.println("DEBUG: SpanAccessory created!");
-
-  new Service::AccessoryInformation();
-  Serial.println("DEBUG: AccessoryInformation created!");
-
-  new Characteristic::Identify();
-  new Characteristic::Name("Roller Shades");
-  new Characteristic::Manufacturer("DIY");
-  new Characteristic::Model("ESP32C6-Shades");
-  new Characteristic::SerialNumber("RS-001");
-  Serial.println("DEBUG: Characteristics created!");
-
-  new RollerShade(); // Custom WindowCovering service with update/loop
-  Serial.println("DEBUG: RollerShade service created!");
+  // Initialize HomeSpan (all configuration in HomeSpanConfig.cpp)
+  homeSpanSetup();
 
   Serial.println("DEBUG: Initializing buttons...");
   Buttons::init();

@@ -38,22 +38,37 @@ struct RollerShade : Service::WindowCovering
     if (state.maxSteps == 0)
       return;
 
-    // Sync HomeKit with actual position
-    int currentPercent = getCurrentPosition();
-    currentPosition->setVal(currentPercent);
+    // Sync targetPosition with state (in case changed from web UI)
+    if (targetPosition->getVal() != state.targetPercent)
+    {
+      targetPosition->setVal(state.targetPercent);
+    }
 
-    // Update position state based on movement
+    // Sync HomeKit with actual position (only update if changed)
+    int currentPercent = getCurrentPosition();
+    if (currentPosition->getVal() != currentPercent)
+    {
+      currentPosition->setVal(currentPercent);
+    }
+
+    // Update position state based on movement (only update if changed)
+    int newState;
     if (stepper.distanceToGo() == 0)
     {
-      positionState->setVal(2); // stopped
+      newState = 2; // stopped
     }
     else if (currentPercent < state.targetPercent)
     {
-      positionState->setVal(1); // opening (going up)
+      newState = 1; // opening (going up)
     }
     else
     {
-      positionState->setVal(0); // closing (going down)
+      newState = 0; // closing (going down)
+    }
+
+    if (positionState->getVal() != newState)
+    {
+      positionState->setVal(newState);
     }
   }
 };
