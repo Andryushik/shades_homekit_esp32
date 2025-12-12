@@ -66,6 +66,11 @@ void setup()
   DPRINTLN("=== TEST BUILD " __DATE__ " " __TIME__ " ===");
   // Set DHCP/mDNS hostname so routers show a friendly name
   WiFi.setHostname(HOSTNAME);
+  // Enable Wi-Fi power save (modem-sleep) — should still keep HomeSpan/web responsive
+  WiFi.setSleep(true);
+#ifdef WIFI_PS_MIN_MODEM
+  WiFi.setSleepMode(WIFI_PS_MIN_MODEM);
+#endif
 
   Led::begin();
   // BUTTON_MAIN is simulated by both UP+DOWN pressed

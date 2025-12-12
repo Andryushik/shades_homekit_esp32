@@ -11,17 +11,19 @@ ESP32-based roller shades controller for the Seeed XIAO ESP32C6 (or any ESP32 va
 - Calibration persists to SPIFFS (`/config.json`); HomeKit data stored in NVS
 
 ## Hardware
-- Seeed Studio XIAO ESP32C6 (any ESP32 works)
-- 28BYJ-48 stepper + ULN2003 driver
+- Seeed Studio XIAO ESP32-C6 (or any ESP32 variant supported by HomeSpan)
+- 28BYJ-48 stepper (5V or 12V variant) + ULN2003 driver (5–12V compatible)
 - Two momentary buttons (UP/DOWN)
-- Single status LED (active-low on GPIO15)
-- 5V supply for ESP32 + motor
+- Single status LED on GPIO15 (active-low, PWM)
+- Supply motor/ULN2003 from its rated voltage (5–12V). Power XIAO via USB 5V (recommended). Common GND required.
 
 **Pinout (see `pins.h`):**
 - Motor: IN1=GPIO1, IN2=GPIO2, IN3=GPIO21, IN4=GPIO22
 - Buttons: UP=GPIO19, DOWN=GPIO20
-- LED: GPIO15 (PWM, active-low)
+- Status LED: GPIO15 (active-low PWM)
 - XIAO map: D1=GPIO1, D2=GPIO2, D3=GPIO21, D4=GPIO22, D8=GPIO19, D9=GPIO20
+
+> Power note: Do not feed external 5V into XIAO VBUS while also connected to USB. Recommended: power XIAO via USB, and power motor/ULN2003 from its rated supply (5–12V), sharing a common GND.
 
 ## Firmware Setup
 1) Install ESP32 board package in Arduino IDE or CLI (Board Manager URL: `https://espressif.github.io/arduino-esp32/package_esp32_index.json`).  
@@ -37,7 +39,7 @@ ESP32-based roller shades controller for the Seeed XIAO ESP32C6 (or any ESP32 va
    ```
 
 ## First Boot & Pairing
-- On first boot or after factory reset, HomeSpan starts an open AP **RollerShades-Setup**. Connect and follow the captive portal to set Wi‑Fi.  
+- On first boot or after factory reset, HomeSpan starts a setup AP **RollerShades-Setup** for Wi‑Fi provisioning (no WiFiManager needed).  
 - Once on Wi‑Fi, open the web UI at `http://<device-ip>:8080` (or the mDNS host advertised by HomeSpan) for control and status.  
 - Home app → Add Accessory → More Options → pick **Roller Shades** → enter setup code **281-42-814**.
 
@@ -55,9 +57,9 @@ ESP32-based roller shades controller for the Seeed XIAO ESP32C6 (or any ESP32 va
 - Shows HomeKit code when the accessory is unpaired
 - Reboot or factory reset
 
-**LED states:**
+**Status LED (GPIO15, active-low PWM):**
 - Slow blink (~400ms) during calibration or when not yet calibrated
-- Bright while moving, dim when idle
+- Brighter while moving, dimmer when idle
 - Five quick flashes confirm calibration saves
 
 ## Calibration Flow
