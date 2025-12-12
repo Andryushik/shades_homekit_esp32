@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <WebServer.h>
 #include <ArduinoJson.h>
+#include <WiFi.h>
 #include "Globals.h"
 #include "Buttons.h"
 #include "ButtonActions.h"
@@ -147,7 +148,6 @@ fetch(act,{method:'POST'}).then(u).catch(()=>{alert('Error!');}); e.preventDefau
 static void handleRoot()
 {
   String page;
-  page.reserve(1024); // Reduced from 2048
   String htmlStr = FPSTR(HTML_PAGE);
   String modeClass = (state.currentMode == CALIBRATE) ? "badge-calibrate" : "badge-normal";
   String modeText = (state.currentMode == CALIBRATE) ? "CALIBRATE" : "NORMAL";
@@ -341,7 +341,9 @@ static void handleStatus()
   doc["position"] = getCurrentPosition();
   doc["msg"] = state.lastMessage;
   doc["moving"] = (stepper.distanceToGo() != 0);
-  doc["ip"] = "check_homespan_serial";
+  String ipStr = (WiFi.status() == WL_CONNECTED) ? WiFi.localIP().toString()
+                  : ((WiFi.getMode() & WIFI_AP) ? WiFi.softAPIP().toString() : "");
+  doc["ip"] = ipStr;
   String out;
   serializeJson(doc, out);
   server.sendHeader("Cache-Control", "no-cache");

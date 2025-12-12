@@ -10,6 +10,7 @@
 #include "LedControl.h"
 #include "HomeKitShade.h"
 #include "HomeSpanConfig.h"
+#include <WiFi.h>
 
 // Speed/settings constants
 const float SPEED_MAX = 900.0f; // steps/s
@@ -26,6 +27,7 @@ const int MIN_TRAVEL = 4096;         // minimum calibration travel 1 full rotati
 AccelStepper stepper(AccelStepper::HALF4WIRE, MOTOR_IN1, MOTOR_IN3, MOTOR_IN2, MOTOR_IN4);
 
 Helper helper;
+static const char *HOSTNAME = "RollerShades";
 
 // Centralized runtime state (see `Globals.h` for field docs)
 ShadesState state = {
@@ -62,6 +64,8 @@ void setup()
   Serial.begin(115200);
   SERIAL_DEBUG_INIT();
   DPRINTLN("=== TEST BUILD " __DATE__ " " __TIME__ " ===");
+  // Set DHCP/mDNS hostname so routers show a friendly name
+  WiFi.setHostname(HOSTNAME);
 
   Led::begin();
   // BUTTON_MAIN is simulated by both UP+DOWN pressed

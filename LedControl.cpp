@@ -25,8 +25,9 @@ namespace Led
 
   void setOn(uint8_t brightness)
   {
-    ledcWrite(LED_PIN, (brightness > 0) ? 0 : 255); // Inverted: LOW = ON
-    currentBrightness = (brightness > 0) ? 255 : 0;
+    // If caller passes 0, treat it as full ON to keep "on" semantics
+    uint8_t b = (brightness == 0) ? 255 : brightness;
+    setBrightness(b);
   }
 
   void setBrightness(uint8_t brightness)

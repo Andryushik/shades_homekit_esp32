@@ -87,8 +87,6 @@ namespace Buttons
         state.mainLong5Handled = true; // suppress 5s action
         DPRINTLN("MAIN long press: FACTORY RESET (10s)");
         reset();
-        delay(300);
-        ESP.restart();
       }
       else if (dur >= MAIN_LONG_PRESS_CAL_MS && !state.mainLong5Handled && state.currentMode != CALIBRATE)
       {
