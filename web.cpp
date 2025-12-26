@@ -24,7 +24,7 @@ static WebServer server(8080); // Web UI on port 8080 (HomeSpan on default 80)
 
 // Use PROGMEM for large HTML content to save RAM (global scope)
 const char HTML_PAGE[] PROGMEM = R"html(
-<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Shades</title><style>
+<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Blinds</title><style>
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,sans-serif;margin:0;padding:20px;background:#f5f5f5;color:#333}
 .container{max-width:400px;margin:0 auto}
 .card{background:white;border-radius:12px;padding:20px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
@@ -59,7 +59,7 @@ h1{margin:0 0 16px 0;font-size:24px;color:#2c3e50;text-align:center}
 </style></head><body>
 <div class="container">
 <div class="card">
-<h1>Roller Shades</h1>
+<h1>Blinds</h1>
 
 <div class="status" style="margin:8px 0;font-size:12px;text-align:center">
 <span class="badge MODE_CLASS" id='mode'>MODE_PLACEHOLDER</span>
@@ -314,7 +314,7 @@ static void handleReboot()
   page.reserve(400);
   page += F("<!doctype html><html><head><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Rebooting</title><style>body{font-family:sans-serif;margin:24px}a{color:#0645ad;text-decoration:none}a:hover{text-decoration:underline}</style></head><body>");
   page += F("<h2>Rebooting...\n</h2>");
-  page += F("<p>Shades Controller is restarting now. Please wait.</p>");
+  page += F("<p>Blinds Controller is restarting now. Please wait.</p>");
   page += F("<script>setTimeout(function(){location.href='/'},15000);</script>");
   page += F("</body></html>");
   server.send(200, "text/html", page);

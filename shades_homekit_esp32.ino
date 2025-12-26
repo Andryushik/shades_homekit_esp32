@@ -27,7 +27,7 @@ const int MIN_TRAVEL = 4096;         // minimum calibration travel 1 full rotati
 AccelStepper stepper(AccelStepper::HALF4WIRE, MOTOR_IN1, MOTOR_IN3, MOTOR_IN2, MOTOR_IN4);
 
 Helper helper;
-static const char *HOSTNAME = "RollerShades";
+static const char *HOSTNAME = "Blinds";
 
 // Centralized runtime state (see `Globals.h` for field docs)
 ShadesState state = {

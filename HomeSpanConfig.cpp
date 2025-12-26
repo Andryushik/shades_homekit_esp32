@@ -5,10 +5,10 @@
 void homeSpanSetup()
 {
   // Initialize HomeSpan
-  homeSpan.begin(Category::WindowCoverings, "Roller Shades");
+  homeSpan.begin(Category::WindowCoverings, "Blinds");
 
   // Enable Auto-AP mode without password for easy WiFi configuration
-  homeSpan.setApSSID("RollerShades-Setup");
+  homeSpan.setApSSID("Blinds-Setup");
   homeSpan.setApPassword("");
   homeSpan.enableAutoStartAP();
 
@@ -21,9 +21,9 @@ void homeSpanSetup()
   new SpanAccessory();
   new Service::AccessoryInformation();
   new Characteristic::Identify();
-  new Characteristic::Name("Roller Shades");
+  new Characteristic::Name("Blinds");
   new Characteristic::Manufacturer("DIY");
-  new Characteristic::Model("ESP32C6-Shades");
-  new Characteristic::SerialNumber("RS-001");
-  new RollerShade();
+  new Characteristic::Model("ESP32C6-Blinds");
+  new Characteristic::SerialNumber("BL-001");
+  new Blinds();
 }

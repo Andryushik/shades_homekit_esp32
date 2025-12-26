@@ -10,14 +10,14 @@ extern ShadesState state;
 extern AccelStepper stepper;
 extern int getCurrentPosition();
 
-// HomeSpan custom WindowCovering service for roller shades
-struct RollerShade : Service::WindowCovering
+// HomeSpan custom WindowCovering service for blinds
+struct Blinds : Service::WindowCovering
 {
   SpanCharacteristic *currentPosition;
   SpanCharacteristic *targetPosition;
   SpanCharacteristic *positionState;
 
-  RollerShade() : Service::WindowCovering()
+  Blinds() : Service::WindowCovering()
   {
     // Initialize with saved position from state
     int currentPos = getCurrentPosition();
