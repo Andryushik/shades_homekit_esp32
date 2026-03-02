@@ -17,7 +17,7 @@ ESP32-based roller shades controller for the Seeed XIAO ESP32C6 (or any ESP32 va
 - 28BYJ-48 stepper (5V or 12V variant) + ULN2003 driver (5–12V compatible)
 - Two momentary buttons (UP/DOWN)
 - Built-in status LED on GPIO15 (active-low, PWM)
-- 3D printed parts: [Smart Roller Shades (ESP8266 HomeKit) on Printables](https://www.printables.com/model/1524947-diy-roller-shades-homekitwebui-esp32)
+- 3D printed parts: [Smart Roller Shades (ESP32 HomeKit) on Printables](https://www.printables.com/model/1524947-diy-roller-shades-homekitwebui-esp32)
 
 > Recommended: 12V motor + 12V PSU 2A for better torque, and a buck converter (12V→5V) to power the ESP32/XIAO. Common GND required.
 > Power note: Do not feed external 5V into XIAO VBUS while also connected to USB. If using a 12V PSU, power motor/ULN2003 from 12V and use a buck converter (12V→5V) for the ESP32/XIAO, sharing a common GND.
@@ -68,6 +68,10 @@ ESP32-based roller shades controller for the Seeed XIAO ESP32C6 (or any ESP32 va
 - Start/exit calibration, save top/bottom points, view travel and status message
 - Shows HomeKit code when the accessory is unpaired
 - Reboot or factory reset
+
+![Web UI](assets/IMG_1329.JPG)
+
+### Screenshot: web UI (click to view full size)
 
 **Status LED (built-in, GPIO15 active-low PWM):**
 
