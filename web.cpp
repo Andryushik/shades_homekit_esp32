@@ -137,7 +137,7 @@ m.textContent=s.msg||''; mc.style.display=s.msg?'block':'none';
 if(s.msg){m.className=s.msg.indexOf('too small')>-1||s.msg.indexOf('failed')>-1?'msg msg-error':'msg msg-success';}
 var cs=document.getElementById('calSave'); if(cs)cs.style.display=s.mode==='CALIBRATE'?'block':'none';
 var st=document.getElementById('calStart'),sp=document.getElementById('calStop');
-if(st&&sp){st.style.display=s.mode==='CALIBRATE'?'none':'inline-block'; sp.style.display=s.mode==='CALIBRATE'?'inline-block':'none';}
+if(st&&sp){st.style.display=s.mode==='CALIBRATE'?'none':'inline-block'; sp.style.display=s.mode==='CALIBRATE'?'inline-block':'none'; sp.disabled=s.mode==='CALIBRATE'&&s.maxSteps===0; sp.style.opacity=sp.disabled?'0.4':'1';}
 });}; setInterval(u,2000); window.addEventListener('load',u);
 document.addEventListener('click',(e)=>{var b=e.target.closest('[data-act]'); if(b){var act=b.getAttribute('data-act');
 if(act==='/factory'){if(!confirm('Factory reset will erase Wi-Fi and config. Continue?'))return;}

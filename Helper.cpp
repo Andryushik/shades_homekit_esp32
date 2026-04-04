@@ -12,13 +12,7 @@ Helper::Helper()
 
 bool Helper::begin()
 {
-  if (LittleFS.begin(true, "/spiffs", 5, nullptr))
-  {
-    DPRINTLN("LittleFS OK");
-    return true;
-  }
-  DPRINTLN("LittleFS failed");
-  return false;
+  return LittleFS.begin(true, "/spiffs", 5, "spiffs");
 }
 
 boolean Helper::loadconfig()
@@ -38,11 +32,8 @@ boolean Helper::loadconfig()
     return false;
   }
 
-  // Clear previous content and parse JSON into persistent document
   _doc.clear();
   DeserializationError err = deserializeJson(_doc, configFile);
-
-  // Avoid leaving opened files
   configFile.close();
 
   if (err)
@@ -50,7 +41,6 @@ boolean Helper::loadconfig()
     DPRINTLN("Failed to parse config file");
     return false;
   }
-  // Ensure a config version exists
   if (!_doc["configVersion"].is<int>())
   {
     _doc["configVersion"] = 1;
@@ -67,21 +57,19 @@ boolean Helper::saveconfig(const JsonDocument &json)
 {
   File configFile = LittleFS.open(this->_configfile, "w");
   if (!configFile)
-  {
-    DPRINTLN("Failed to open config file for writing");
     return false;
-  }
 
-  if (serializeJson(json, configFile) == 0)
-  {
-    DPRINTLN("Failed to write JSON to config file");
-    configFile.close();
-    return false;
-  }
+  // Copy to local document — ArduinoJson v6 cannot serialize
+  // correctly through a polymorphic const JsonDocument& reference
+  StaticJsonDocument<1024> doc;
+  JsonObject dst = doc.to<JsonObject>();
+  for (JsonPairConst kv : json.as<JsonObjectConst>())
+    dst[kv.key()] = kv.value();
+
+  size_t written = serializeJson(doc, configFile);
   configFile.flush();
   configFile.close();
-  DPRINTLN("Saved JSON to LittleFS");
-  return true;
+  return written > 0;
 }
 
 void Helper::resetsettings()
