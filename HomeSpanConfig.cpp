@@ -4,6 +4,9 @@
 
 void homeSpanSetup()
 {
+  // Enable OTA updates (must be called before begin)
+  homeSpan.enableOTA("28142814");
+
   // Initialize HomeSpan
   homeSpan.begin(Category::WindowCoverings, "Roller Shades");
 

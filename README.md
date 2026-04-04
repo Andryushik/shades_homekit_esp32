@@ -32,7 +32,7 @@ ESP32-based roller shades controller for the Seeed XIAO ESP32C6 (or any ESP32 va
 ## Firmware Setup
 
 1. Install ESP32 board package in Arduino IDE or CLI (Board Manager URL: `https://espressif.github.io/arduino-esp32/package_esp32_index.json`).
-2. Select board **XIAO_ESP32C6** (or your ESP32), partition scheme **No OTA (2MB APP/2MB SPIFFS)**.
+2. Select board **XIAO_ESP32C6** (or your ESP32), partition scheme **Minimal SPIFFS (1.9MB APP with OTA/190KB SPIFFS)**.
 3. Install libraries: HomeSpan (2.1+), AccelStepper (1.64+), EasyButton (2.0.3+), ArduinoJson (6.21+).
 
    ```bash
@@ -42,8 +42,8 @@ ESP32-based roller shades controller for the Seeed XIAO ESP32C6 (or any ESP32 va
 4. Build/flash:
 
    ```bash
-   arduino-cli compile --fqbn esp32:esp32:XIAO_ESP32C6:PartitionScheme=no_ota .
-   arduino-cli upload   --fqbn esp32:esp32:XIAO_ESP32C6:PartitionScheme=no_ota -p /dev/ttyUSB0 .
+   arduino-cli compile --fqbn esp32:esp32:XIAO_ESP32C6:PartitionScheme=min_spiffs .
+   arduino-cli upload   --fqbn esp32:esp32:XIAO_ESP32C6:PartitionScheme=min_spiffs -p /dev/ttyUSB0 .
    ```
 
 ## First Boot & Pairing
@@ -102,6 +102,15 @@ const int MIN_TRAVEL = 4096;         // minimum calibration distance
 **Pins:** editable in `pins.h`.
 **Storage:** `/config.json` on LittleFS (position, travel, raw calibration points, target). Factory reset formats LittleFS and clears HomeKit pairing (NVS).
 **Debug:** define `SHADES_DEBUG` (see `Globals.h`) for serial logging.
+
+## OTA Updates
+
+After the first serial flash, firmware can be updated over WiFi (OTA) using HomeSpan's built-in OTA support.
+
+- **OTA password:** `28142814` (same as HomeKit pairing code)
+- In Arduino IDE: the device appears as a network port under Tools → Port → Network ports
+- Via CLI: `arduino-cli upload --fqbn esp32:esp32:XIAO_ESP32C6:PartitionScheme=min_spiffs --port <device-ip> .`
+- **Note:** The first flash after changing partition scheme must be done via USB serial.
 
 ## Troubleshooting
 
