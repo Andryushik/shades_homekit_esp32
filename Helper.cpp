@@ -12,18 +12,18 @@ Helper::Helper()
 
 bool Helper::begin()
 {
-  if (SPIFFS.begin(true, "/spiffs", 5, nullptr))
+  if (LittleFS.begin(true, "/spiffs", 5, nullptr))
   {
-    DPRINTLN("SPIFFS OK");
+    DPRINTLN("LittleFS OK");
     return true;
   }
-  DPRINTLN("SPIFFS failed");
+  DPRINTLN("LittleFS failed");
   return false;
 }
 
 boolean Helper::loadconfig()
 {
-  File configFile = SPIFFS.open(this->_configfile, "r");
+  File configFile = LittleFS.open(this->_configfile, "r");
   if (!configFile)
   {
     DPRINTLN(F("Failed to open config file"));
@@ -65,38 +65,26 @@ JsonObjectConst Helper::getconfig() const
 
 boolean Helper::saveconfig(const JsonDocument &json)
 {
-  File configFile = SPIFFS.open(this->_configfile, "w");
+  File configFile = LittleFS.open(this->_configfile, "w");
   if (!configFile)
   {
     DPRINTLN("Failed to open config file for writing");
     return false;
   }
 
-  // Attach schema version
-  // Use a local StaticJsonDocument to build the saved JSON (1KB should be sufficient)
-  StaticJsonDocument<1024> doc;
-  JsonObject dst = doc.to<JsonObject>();
-  JsonObjectConst src = json.as<JsonObjectConst>();
-  for (JsonPairConst kv : src)
-  {
-    dst[kv.key()] = kv.value();
-  }
-  dst["configVersion"] = 1;
-
-  if (serializeJson(doc, configFile) == 0)
+  if (serializeJson(json, configFile) == 0)
   {
     DPRINTLN("Failed to write JSON to config file");
     configFile.close();
     return false;
   }
-  configFile.flush(); // Making sure it's saved
-  // Close file so resources are released and data is committed
+  configFile.flush();
   configFile.close();
-  DPRINTLN("Saved JSON to SPIFFS");
+  DPRINTLN("Saved JSON to LittleFS");
   return true;
 }
 
 void Helper::resetsettings()
 {
-  SPIFFS.format();
+  LittleFS.format();
 }

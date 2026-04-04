@@ -9,7 +9,7 @@ ESP32-based roller shades controller for the Seeed XIAO ESP32C6 (or any ESP32 va
 - Two physical buttons with smooth stop, calibration, and factory reset
 - Smooth stepper motion using AccelStepper; holds torque optionally after moves
 - Status LED with movement brightness and calibration/uncalibrated blink
-- Calibration persists to SPIFFS (`/config.json`); HomeKit data stored in NVS
+- Calibration persists to LittleFS (`/config.json`); HomeKit data stored in NVS
 
 ## Hardware
 
@@ -33,7 +33,7 @@ ESP32-based roller shades controller for the Seeed XIAO ESP32C6 (or any ESP32 va
 
 1. Install ESP32 board package in Arduino IDE or CLI (Board Manager URL: `https://espressif.github.io/arduino-esp32/package_esp32_index.json`).
 2. Select board **XIAO_ESP32C6** (or your ESP32), partition scheme **No OTA (2MB APP/2MB SPIFFS)**.
-3. Install libraries: HomeSpan (2.1+), AccelStepper (1.64+), EasyButton (2.0.3+), ArduinoJson (7+).
+3. Install libraries: HomeSpan (2.1+), AccelStepper (1.64+), EasyButton (2.0.3+), ArduinoJson (6.21+).
 
    ```bash
    arduino-cli lib install "HomeSpan" "AccelStepper" "EasyButton" "ArduinoJson"
@@ -100,7 +100,7 @@ const int MIN_TRAVEL = 4096;         // minimum calibration distance
 ```
 
 **Pins:** editable in `pins.h`.
-**Storage:** `/config.json` on SPIFFS (position, travel, raw calibration points, target). Factory reset formats SPIFFS and clears HomeKit pairing (NVS).
+**Storage:** `/config.json` on LittleFS (position, travel, raw calibration points, target). Factory reset formats LittleFS and clears HomeKit pairing (NVS).
 **Debug:** define `SHADES_DEBUG` (see `Globals.h`) for serial logging.
 
 ## Troubleshooting

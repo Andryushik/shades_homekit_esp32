@@ -138,9 +138,9 @@ if(s.msg){m.className=s.msg.indexOf('too small')>-1||s.msg.indexOf('failed')>-1?
 var cs=document.getElementById('calSave'); if(cs)cs.style.display=s.mode==='CALIBRATE'?'block':'none';
 var st=document.getElementById('calStart'),sp=document.getElementById('calStop');
 if(st&&sp){st.style.display=s.mode==='CALIBRATE'?'none':'inline-block'; sp.style.display=s.mode==='CALIBRATE'?'inline-block':'none';}
-});}; setInterval(u,200); window.addEventListener('load',u);
+});}; setInterval(u,2000); window.addEventListener('load',u);
 document.addEventListener('click',(e)=>{var b=e.target.closest('[data-act]'); if(b){var act=b.getAttribute('data-act');
-if(act==='/factory'){if(!confirm('Factory reset will erase Wi-Fi and SPIFFS config. Continue?'))return;}
+if(act==='/factory'){if(!confirm('Factory reset will erase Wi-Fi and config. Continue?'))return;}
 fetch(act,{method:'POST'}).then(u).catch(()=>{alert('Error!');}); e.preventDefault();}});})();</script>
 </body></html>
 )html";
@@ -220,42 +220,12 @@ static void handleDownStart()
   sendQuickResponse();
 }
 
-static void handlePreset30()
+static void handlePreset(int percent)
 {
-  if (state.currentMode == CALIBRATE)
+  if (state.currentMode != CALIBRATE)
   {
-    // ignore during calibration
-  }
-  else
-  {
-    BA_moveToPercent(30);
-    DPRINTLN("WEB: Move to 30% preset");
-  }
-  sendQuickResponse();
-}
-
-static void handlePreset50()
-{
-  if (state.currentMode == CALIBRATE)
-  {
-  }
-  else
-  {
-    BA_moveToPercent(50);
-    DPRINTLN("WEB: Move to 50% preset");
-  }
-  sendQuickResponse();
-}
-
-static void handlePreset70()
-{
-  if (state.currentMode == CALIBRATE)
-  {
-  }
-  else
-  {
-    BA_moveToPercent(70);
-    DPRINTLN("WEB: Move to 70% preset");
+    BA_moveToPercent(percent);
+    DPRINTF("WEB: Move to %d%% preset\n", percent);
   }
   sendQuickResponse();
 }
@@ -342,7 +312,7 @@ static void handleStatus()
   doc["msg"] = state.lastMessage;
   doc["moving"] = (stepper.distanceToGo() != 0);
   String ipStr = (WiFi.status() == WL_CONNECTED) ? WiFi.localIP().toString()
-                  : ((WiFi.getMode() & WIFI_AP) ? WiFi.softAPIP().toString() : "");
+                                                 : ((WiFi.getMode() & WIFI_AP) ? WiFi.softAPIP().toString() : "");
   doc["ip"] = ipStr;
   String out;
   serializeJson(doc, out);
@@ -362,9 +332,12 @@ void webBegin()
   server.on("/cal/hold/stop", HTTP_POST, handleHoldStop);
   server.on("/cal/saveTop", HTTP_POST, handleSaveTop);
   server.on("/cal/saveBottom", HTTP_POST, handleSaveBottom);
-  server.on("/preset/30", HTTP_POST, handlePreset30);
-  server.on("/preset/50", HTTP_POST, handlePreset50);
-  server.on("/preset/70", HTTP_POST, handlePreset70);
+  server.on("/preset/30", HTTP_POST, []()
+            { handlePreset(30); });
+  server.on("/preset/50", HTTP_POST, []()
+            { handlePreset(50); });
+  server.on("/preset/70", HTTP_POST, []()
+            { handlePreset(70); });
   server.on("/reboot", HTTP_POST, handleReboot);
   server.begin();
 }

@@ -7,7 +7,7 @@
 #undef NO_INLINE
 #endif
 #include <ArduinoJson.h>
-#include <SPIFFS.h>
+#include <LittleFS.h>
 #include <WiFi.h>
 
 class Helper

@@ -9,6 +9,7 @@
 void BA_startBlink(int times, int ms);
 void BA_blinkUpdate();
 
+int calculatePercentForStep(long stepPosition);
 void BA_moveToPercent(int percent);
 void BA_stopMotion();
 
