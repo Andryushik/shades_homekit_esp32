@@ -24,5 +24,6 @@ arduino-cli compile --fqbn "$FQBN" \
 echo "==> OTA upload to $PORT"
 arduino-cli upload --fqbn "$FQBN" \
   --input-dir "$BUILD_DIR" \
+  --protocol network \
   --port "$PORT" -F password="$OTA_PASSWORD" \
   .
