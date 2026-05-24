@@ -5,14 +5,17 @@
 
 // Build-time feature toggles
 /*
- Debug logging helpers: define `SHADES_DEBUG` to enable serial debug output
- (add `-DSHADES_DEBUG` to compiler flags to enable; this avoids colliding with
- other libraries that use `DEBUG`).
+ Debug logging helpers: output goes to `debugOut` (a RemoteLog instance
+ that writes to both Serial AND a connected telnet client on port 23).
+ Pass `-DSHADES_DEBUG` via compiler.cpp.extra_flags to enable.
 */
+extern Print &debugOut;       // defined in RemoteLog.cpp
+extern const char *gResetReason; // set in setup() from esp_reset_reason(); read by RemoteLog banner
+
 #ifdef SHADES_DEBUG
-#define DPRINT(...) Serial.print(__VA_ARGS__)
-#define DPRINTLN(...) Serial.println(__VA_ARGS__)
-#define DPRINTF(...) Serial.printf(__VA_ARGS__)
+#define DPRINT(...) debugOut.print(__VA_ARGS__)
+#define DPRINTLN(...) debugOut.println(__VA_ARGS__)
+#define DPRINTF(...) debugOut.printf(__VA_ARGS__)
 #define SERIAL_DEBUG_INIT() Serial.setDebugOutput(true)
 #else
 #define DPRINT(...)

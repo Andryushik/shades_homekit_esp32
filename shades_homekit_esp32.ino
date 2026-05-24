@@ -12,6 +12,8 @@
 #include "HomeKitShade.h"
 #include "HomeSpanConfig.h"
 #include <WiFi.h>
+#include "RemoteLog.h"
+#include "Diagnostics.h"
 
 // Speed/settings constants
 const float SPEED_MAX = 900.0f; // steps/s
@@ -28,6 +30,7 @@ const int MIN_TRAVEL = 4096;         // minimum calibration travel 1 full rotati
 AccelStepper stepper(AccelStepper::HALF4WIRE, MOTOR_IN1, MOTOR_IN3, MOTOR_IN2, MOTOR_IN4);
 
 Helper helper;
+
 static const char *HOSTNAME = "RollerShades";
 
 // Centralized runtime state (see `Globals.h` for field docs)
@@ -59,19 +62,28 @@ void enableCalibrationMode();
 void properLedDisplay();
 void handleEngineControllerActivity();
 void shadesControl();
+void motorTick();
 
 void setup()
 {
+  // TODO(hardware-fix): remove this call once a bulk capacitor is installed on
+  // the 5V rail next to the XIAO. Until then, motor pulses dip VCC below the
+  // BOD threshold and reset the chip mid-move — see Diagnostics.cpp for risks.
+  diag_disableBrownout();
+
   Serial.begin(115200);
   SERIAL_DEBUG_INIT();
   DPRINTLN("=== TEST BUILD " __DATE__ " " __TIME__ " ===");
+  diag_init();
+  diag_installWiFiEventLogger();
+
   // Set DHCP/mDNS hostname so routers show a friendly name
   WiFi.setHostname(HOSTNAME);
-  // Enable Wi-Fi power save (modem-sleep) — should still keep HomeSpan/web responsive
-  WiFi.setSleep(true);
-#ifdef WIFI_PS_MIN_MODEM
-  WiFi.setSleepMode(WIFI_PS_MIN_MODEM);
-#endif
+  // WiFi.setSleep(false) — modem-sleep disabled. We get lower-latency HomeKit
+  // (no "Not Responding" jitter from DTIM-delayed unicast RX). The extra
+  // ~30-50 mA continuous radio draw is negligible vs the motor pulse and
+  // covered by the brownout workaround above + the bulk cap on the 5V rail.
+  WiFi.setSleep(false);
 
   Led::begin();
   // BUTTON_MAIN is simulated by both UP+DOWN pressed
@@ -108,41 +120,15 @@ void setup()
   DPRINTLN("Setup complete, entering loop...");
 }
 
-void loop()
+// Motor tick — call as often as possible to prevent step starvation on
+// the single-core ESP32-C6. Safe to call multiple times per loop;
+// stepper.run()/runSpeed() only steps when timing is due.
+void motorTick()
 {
   static bool wasCalibrating = false;
-  static unsigned long lastHousekeeping = 0;
-  static bool webServerStarted = false;   // Track web server initialization
-  const unsigned long HOUSEKEEP_MS = 100; // run housekeeping less frequently
 
-  // 1. HomeSpan loop (must be called for HomeKit communication)
-  homeSpan.poll();
-
-  // Start/restart web server when WiFi connects (handles initial start + reconnection)
-  bool wifiConnected = (WiFi.status() == WL_CONNECTED);
-  if (wifiConnected && !webServerStarted)
-  {
-    webBegin();
-    webServerStarted = true;
-    DPRINTF("Web server started at http://%s:8080\n", WiFi.localIP().toString().c_str());
-  }
-  else if (!wifiConnected && webServerStarted)
-  {
-    // WiFi lost — mark for restart when it reconnects
-    webServerStarted = false;
-    DPRINTLN("WiFi disconnected, web server will restart on reconnect");
-  }
-
-  // 2. Buttons (highest priority)
-  Buttons::loop();
-
-  // 2. Update target/commands (HomeKit/web may have changed the target)
-  shadesControl();
-
-  // 3. MOTOR - must be called every loop
   if (state.currentMode == CALIBRATE)
   {
-    // calibration: continuous speed control handled elsewhere via calJogDir/state
     wasCalibrating = true;
 
     bool up = (state.calJogDir < 0);
@@ -191,23 +177,87 @@ void loop()
     stepper.run();
   }
 
-  // 4. State sync - ensure position reflects current motor position
+  // Keep state in sync with actual motor position
   state.currentStep = stepper.currentPosition();
+}
 
-  // 5. Non-blocking UI tasks
+void loop()
+{
+  static unsigned long lastHousekeeping = 0;
+  static bool webServerStarted = false;
+  static unsigned long lastHeartbeat = 0;
+  const unsigned long HOUSEKEEP_MS = 100;
+  const unsigned long HEARTBEAT_MS = 5000;
+  const unsigned long SLOW_LOOP_THRESHOLD_MS = 50;
+
+  unsigned long loopStart = millis();
+
+  // Motor is highest priority — step before anything can block
+  motorTick();
+
+  // HomeSpan (potentially blocking: TLS, HAP notifications)
+  homeSpan.poll();
+  motorTick(); // recover after HomeSpan
+
+  // Start/restart web server when WiFi connects
+  bool wifiConnected = (WiFi.status() == WL_CONNECTED);
+  if (wifiConnected && !webServerStarted)
+  {
+    webBegin();
+#ifdef SHADES_DEBUG
+    rlog.begin(); // telnet debug console on port 23 — only after WiFi is up so LWIP is ready
+#endif
+    webServerStarted = true;
+    DPRINTF("Web server started at http://%s:8080\n", WiFi.localIP().toString().c_str());
+  }
+  else if (!wifiConnected && webServerStarted)
+  {
+    webServerStarted = false;
+    DPRINTLN("WiFi disconnected, web server will restart on reconnect");
+  }
+
+  // Buttons + target update (fast)
+  Buttons::loop();
+  shadesControl();
+  motorTick(); // step toward new target immediately
+
+  // UI + housekeeping
   properLedDisplay();
-
-  // 6. Housekeeping - run less frequently to avoid frequent FS/heavy ops
   if (millis() - lastHousekeeping >= HOUSEKEEP_MS)
   {
     handleEngineControllerActivity();
     lastHousekeeping = millis();
   }
 
-  // 7. Web - run at the end of the loop (may be heavier)
+  // Web server (potentially blocking: HTTP request/response)
   webLoop();
+#ifdef SHADES_DEBUG
+  rlog.loop(); // accept/manage telnet debug clients
+#endif
+  motorTick(); // recover after web server
 
-  // 8. Yield
+  // Slow-loop detector + heartbeat telemetry
+  unsigned long loopEnd = millis();
+  unsigned long loopDuration = loopEnd - loopStart;
+  if (loopDuration >= SLOW_LOOP_THRESHOLD_MS)
+  {
+    DPRINTF("SLOW LOOP: %lums (motor likely starved ~%lu steps)\n",
+            loopDuration, (loopDuration * (unsigned long)SPEED_MAX) / 1000UL);
+  }
+  if (loopEnd - lastHeartbeat >= HEARTBEAT_MS)
+  {
+    DPRINTF("[uptime %lus] heap=%uK rssi=%ddBm mode=%s pos=%d%% target=%d%% moving=%d dist=%ld\n",
+            loopEnd / 1000UL,
+            (unsigned)(ESP.getFreeHeap() / 1024),
+            (int)WiFi.RSSI(),
+            state.currentMode == CALIBRATE ? "CAL" : "NORM",
+            getCurrentPosition(),
+            state.targetPercent,
+            stepper.distanceToGo() != 0 ? 1 : 0,
+            stepper.distanceToGo());
+    lastHeartbeat = loopEnd;
+  }
+
   yield();
 }
 
@@ -345,7 +395,14 @@ bool saveConfig()
   doc["targetPercent"] = state.targetPercent;
   doc["rawUpStep"] = state.upStep;
   doc["rawDownStep"] = state.downStep;
-  return helper.saveconfig(doc);
+  unsigned long t0 = millis();
+  bool ok = helper.saveconfig(doc);
+  DPRINTF("saveConfig: %s step=%d max=%d target=%d%% upRaw=%d downRaw=%d (%lums)\n",
+          ok ? "OK" : "FAIL",
+          state.currentStep, state.maxSteps, state.targetPercent,
+          state.upStep, state.downStep,
+          millis() - t0);
+  return ok;
 }
 
 void enableCalibrationMode()
@@ -361,8 +418,9 @@ void enableCalibrationMode()
   stepper.run();
   state.lastMovementTime = 0;
   // During calibration we want a smooth, continuous action via runSpeed()
-  // Disable acceleration so runSpeed() produces steady velocity.
-  stepper.setAcceleration(0.0f);
+  // Use a very large acceleration so run() won't divide-by-zero if called
+  // accidentally; runSpeed() ignores the acceleration parameter entirely.
+  stepper.setAcceleration(10000.0f);
   stepper.setMaxSpeed(CAL_SPEED);
   // clear any prior speed used by runSpeed()
   stepper.setSpeed(0.0f);
@@ -388,7 +446,9 @@ void shadesControl()
     stepper.moveTo(targetStep);
     state.lastMovementTime = millis();
     // User-facing feedback for Normal mode moves
-    state.lastMessage = String("Moving to ") + state.targetPercent + "%";
+    char msgBuf[24];
+    snprintf(msgBuf, sizeof(msgBuf), "Moving to %d%%", state.targetPercent);
+    state.lastMessage = msgBuf;
   }
 
   // If no distance left, we're stopped — set message only on transition

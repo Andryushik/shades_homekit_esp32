@@ -95,7 +95,11 @@ void BA_moveToPercent(int percent)
   else if (tp == 0)
     state.lastMessage = F("Moving DOWN");
   else
-    state.lastMessage = String("Moving to ") + tp + "%";
+  {
+    char buf[24];
+    snprintf(buf, sizeof(buf), "Moving to %d%%", tp);
+    state.lastMessage = buf;
+  }
 }
 
 void BA_stopMotion()
@@ -104,6 +108,9 @@ void BA_stopMotion()
   long currentPos = stepper.currentPosition();
   float currentSpeed = stepper.speed();
   float absSpeed = abs(currentSpeed);
+  long targetPosBefore = stepper.targetPosition();
+  DPRINTF("BA_stopMotion: curPos=%ld speed=%.1f targetBefore=%ld targetPercentBefore=%d%%\n",
+          currentPos, currentSpeed, targetPosBefore, state.targetPercent);
 
   if (absSpeed > 0.1f) // Only if moving
   {
@@ -174,7 +181,9 @@ void BA_calibrationSaveTop()
   DPRINT("Calibration: saved TOP raw position = ");
   DPRINTLN(state.upStep);
   DPRINTLN("Calibration: MAIN short press (save TOP)");
-  state.lastMessage = String("Saved top position (step ") + state.upStep + ")";
+  char topBuf[40];
+  snprintf(topBuf, sizeof(topBuf), "Saved top position (step %d)", state.upStep);
+  state.lastMessage = topBuf;
   state.confirmBlinkActive = true;
   state.exitCalibrationAfterBlink = false;
   BA_startBlink(5, 80);
@@ -193,7 +202,9 @@ bool BA_calibrationSaveBottom()
   if (travel < MIN_TRAVEL)
   {
     DPRINTLN("Calibration: travel too small, aborting save");
-    state.lastMessage = String("Travel too small: ") + travel + " < " + MIN_TRAVEL;
+    char travelBuf[48];
+    snprintf(travelBuf, sizeof(travelBuf), "Travel too small: %d < %d", travel, MIN_TRAVEL);
+    state.lastMessage = travelBuf;
     return false;
   }
   state.maxSteps = travel;
@@ -212,7 +223,9 @@ bool BA_calibrationSaveBottom()
     return false;
   }
   DPRINTLN("Calibration: finished, rebased and saved");
-  state.lastMessage = String("Calibration saved: travel ") + travel + " steps";
+  char calBuf[48];
+  snprintf(calBuf, sizeof(calBuf), "Calibration saved: travel %d steps", travel);
+  state.lastMessage = calBuf;
   BA_startBlink(5, 80);
   return true;
 }
