@@ -10,7 +10,6 @@
  Pass `-DSHADES_DEBUG` via compiler.cpp.extra_flags to enable.
 */
 extern Print &debugOut;       // defined in RemoteLog.cpp
-extern const char *gResetReason; // set in setup() from esp_reset_reason(); read by RemoteLog banner
 
 #ifdef SHADES_DEBUG
 #define DPRINT(...) debugOut.print(__VA_ARGS__)

@@ -66,11 +66,6 @@ void motorTick();
 
 void setup()
 {
-  // TODO(hardware-fix): remove this call once a bulk capacitor is installed on
-  // the 5V rail next to the XIAO. Until then, motor pulses dip VCC below the
-  // BOD threshold and reset the chip mid-move — see Diagnostics.cpp for risks.
-  diag_disableBrownout();
-
   Serial.begin(115200);
   SERIAL_DEBUG_INIT();
   DPRINTLN("=== TEST BUILD " __DATE__ " " __TIME__ " ===");
@@ -81,8 +76,7 @@ void setup()
   WiFi.setHostname(HOSTNAME);
   // WiFi.setSleep(false) — modem-sleep disabled. We get lower-latency HomeKit
   // (no "Not Responding" jitter from DTIM-delayed unicast RX). The extra
-  // ~30-50 mA continuous radio draw is negligible vs the motor pulse and
-  // covered by the brownout workaround above + the bulk cap on the 5V rail.
+  // ~30-50 mA continuous radio draw is negligible on the 12V supply here.
   WiFi.setSleep(false);
 
   Led::begin();

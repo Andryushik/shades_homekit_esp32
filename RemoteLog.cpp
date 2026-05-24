@@ -1,5 +1,5 @@
 #include "RemoteLog.h"
-#include "Globals.h" // for gResetReason
+#include "Diagnostics.h" // for gResetReason
 #include <lwip/sockets.h>
 #include <netinet/tcp.h>
 

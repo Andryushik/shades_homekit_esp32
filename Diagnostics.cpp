@@ -3,11 +3,6 @@
 #include <WiFi.h>
 #include "esp_system.h"
 
-// ESP-IDF private API to disable the brownout detector at runtime.
-// Implemented inside IDF (esp_brownout_detector.c) — symbol is linkable from
-// the arduino-esp32 core because the IDF is built into the same binary.
-extern "C" void esp_brownout_disable(void);
-
 const char *gResetReason = "UNKNOWN";
 
 static const char *resetReasonStr()
@@ -63,10 +58,4 @@ void diag_installWiFiEventLogger()
     default:
       break;
     } });
-}
-
-void diag_disableBrownout()
-{
-  esp_brownout_disable();
-  DPRINTLN("WARN: brownout detector DISABLED (temporary workaround)");
 }

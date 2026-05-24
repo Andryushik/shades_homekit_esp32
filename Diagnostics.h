@@ -17,9 +17,4 @@ void diag_init();
 // Call ONCE in setup(), before WiFi connects.
 void diag_installWiFiEventLogger();
 
-// TEMPORARY brownout workaround — disable the BOD detector so the chip
-// survives motor pulse VCC dips. Remove this call once a bulk capacitor is
-// installed on the 5V rail next to the XIAO.
-void diag_disableBrownout();
-
 #endif
